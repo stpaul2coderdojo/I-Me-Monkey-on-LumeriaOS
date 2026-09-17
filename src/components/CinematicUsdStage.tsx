@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { CinematicUsdScene, MonkeyDigitalTwin } from '../types';
+import { CinematicUsdScene, MonkeyDigitalTwin, WindPhysicsProfile } from '../types';
 import { CINEMATIC_USD_SCENES } from '../data/cinematicUsdScenes';
 import {
   Play,
@@ -31,8 +31,26 @@ import {
   Loader2,
   X,
   RefreshCw,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Wind,
+  Flower,
+  Cpu
 } from 'lucide-react';
+import { OpenGlMonkeyStage } from './OpenGlMonkeyStage';
+
+// Image caching system for high-resolution USD plates and primate portraits
+const imageCache = new Map<string, HTMLImageElement>();
+function getCachedImage(src?: string): HTMLImageElement | null {
+  if (!src) return null;
+  let img = imageCache.get(src);
+  if (!img) {
+    img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = src;
+    imageCache.set(src, img);
+  }
+  return img.complete && img.naturalWidth > 0 ? img : null;
+}
 
 interface CinematicUsdStageProps {
   selectedTwin: MonkeyDigitalTwin;
@@ -74,6 +92,7 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
 
   // Viewport mode
   const [viewportTab, setViewportTab] = useState<'cinematic' | 'usda-code' | 'render-passes'>('cinematic');
+  const [renderEngine, setRenderEngine] = useState<'opengl-3d' | 'canvas-composite'>('opengl-3d');
 
   // Animation & Playback
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -118,6 +137,73 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
   const [enableVolumetricAtmosphere, setEnableVolumetricAtmosphere] = useState<boolean>(true);
   const [showSkeletalRig, setShowSkeletalRig] = useState<boolean>(false);
   const [showLiDARPointCloud, setShowLiDARPointCloud] = useState<boolean>(false);
+
+  // Dynamic Wind Physics and Interactive Controls
+  const [windSpeedKmH, setWindSpeedKmH] = useState<number>(
+    activeScene.windPhysics?.windSpeedKmH || 24
+  );
+  const [gustiness, setGustiness] = useState<number>(
+    activeScene.windPhysics?.gustiness || 0.45
+  );
+  const [windDirectionDeg, setWindDirectionDeg] = useState<number>(
+    activeScene.windPhysics?.directionDegrees || 72
+  );
+  const [showWindPanel, setShowWindPanel] = useState<boolean>(false);
+  const [showEthologyOverlay, setShowEthologyOverlay] = useState<boolean>(true);
+
+  // Pre-load all environment plates and primate portraits for instantaneous rendering
+  useEffect(() => {
+    scenesList.forEach((scene) => {
+      if (scene.highResImageUrl) {
+        getCachedImage(scene.highResImageUrl);
+      }
+    });
+    allTwins.forEach((twin) => {
+      if (twin.imageUrl) {
+        getCachedImage(twin.imageUrl);
+      }
+    });
+  }, [scenesList, allTwins]);
+
+  // Sync wind physics when active scene changes
+  useEffect(() => {
+    if (activeScene.windPhysics) {
+      setWindSpeedKmH(activeScene.windPhysics.windSpeedKmH);
+      setGustiness(activeScene.windPhysics.gustiness);
+      setWindDirectionDeg(activeScene.windPhysics.directionDegrees);
+    }
+  }, [activeSceneId, activeScene]);
+
+  // ResizeObserver for DPR-aware 16:9 viewport canvas
+  useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+
+    const updateDimensions = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      const rect = container.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const displayWidth = rect.width;
+      const displayHeight = rect.width * (9 / 16);
+
+      const targetW = Math.round(displayWidth * dpr);
+      const targetH = Math.round(displayHeight * dpr);
+
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+    };
+
+    const ro = new ResizeObserver(() => {
+      updateDimensions();
+    });
+    ro.observe(container);
+    updateDimensions();
+
+    return () => ro.disconnect();
+  }, [viewportTab]);
 
   // Web Audio Context reference for generative ambient soundscape
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -242,46 +328,62 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
     return () => cancelAnimationFrame(animId);
   }, [isPlaying, playbackSpeed]);
 
-  // Main Canvas Render Loop
+  // Main Canvas Render Loop (Retina DPR-Aware 1920x1080 Logical Space)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas dimensions
+    // Physical canvas buffer dimensions
     const width = canvas.width;
     const height = canvas.height;
+    if (width === 0 || height === 0) return;
 
     // Time calculations
     const timeNorm = (currentFrame % 360) / 360;
-    const timeRad = timeNorm * Math.PI * 2;
 
     // Clear Canvas
     ctx.clearRect(0, 0, width, height);
 
-    // Save initial state
+    // Save initial state & scale to standard 1920x1080 16:9 logical stage
     ctx.save();
+    ctx.scale(width / 1920, height / 1080);
+    const W = 1920;
+    const H = 1080;
 
-    // 1. ENVIRONMENT & BACKGROUND SKY RENDERING
-    drawEnvironment(ctx, width, height, activeSceneId, timeNorm, enableVolumetricAtmosphere, orbitAngle, activeScene);
+    // 1. HIGH-RES ENVIRONMENT & BACKGROUND SKY / PLATE
+    drawEnvironment(ctx, W, H, activeSceneId, timeNorm, enableVolumetricAtmosphere, orbitAngle, activeScene);
 
     // 2. BACKGROUND CANOPY & VEGETATION (DEPTH LAYERS)
-    drawBackgroundCanopy(ctx, width, height, activeSceneId, timeNorm, enableDepthOfField);
+    drawBackgroundCanopy(ctx, W, H, activeSceneId, timeNorm, enableDepthOfField);
 
     // 3. CINEMATIC GODRAYS / BIOLUMINESCENCE ATMOSPHERE
     if (enableVolumetricAtmosphere) {
-      drawAtmosphereFx(ctx, width, height, activeSceneId, timeNorm);
+      drawAtmosphereFx(ctx, W, H, activeSceneId, timeNorm);
     }
 
-    // 4. MAIN CANOPY BRANCH & FOREGROUND VINES
-    drawMainCanopyPerch(ctx, width, height, activeSceneId, timeNorm);
+    // 4. ANIMATED FLORAL ELEMENTS & TREES IN REALISTIC WIND
+    drawAnimatedFloraAndWind(
+      ctx,
+      W,
+      H,
+      timeNorm,
+      activeSceneId,
+      windSpeedKmH,
+      gustiness,
+      windDirectionDeg,
+      activeScene.windPhysics
+    );
 
-    // 5. HYPERREALISTIC SIMIAN CHARACTER RIG & ANIMATION
+    // 5. MAIN CANOPY BRANCH & FOREGROUND VINES
+    drawMainCanopyPerch(ctx, W, H, activeSceneId, timeNorm);
+
+    // 6. HYPERREALISTIC SIMIAN CHARACTER RIG, ETHOLOGY & PORTRAIT COMPOSITE
     drawHyperrealisticSimian(
       ctx,
-      width,
-      height,
+      W,
+      H,
       activeSceneId,
       timeNorm,
       selectedTwin,
@@ -293,26 +395,29 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
         enableAnisotropicFur,
         showSkeletalRig,
         showLiDARPointCloud,
-      }
+      },
+      showEthologyOverlay,
+      windSpeedKmH,
+      windDirectionDeg
     );
 
-    // 6. FOREGROUND FOLIAGE & DEPTH OF FIELD BOKEH
+    // 7. FOREGROUND FOLIAGE & DEPTH OF FIELD BOKEH
     if (enableDepthOfField) {
-      drawForegroundBokeh(ctx, width, height, activeSceneId, timeNorm);
+      drawForegroundBokeh(ctx, W, H, activeSceneId, timeNorm);
     }
 
-    // 7. CINEMATIC WIDESCREEN BARS (2.39:1 Anamorphic Scope)
+    // 8. CINEMATIC WIDESCREEN BARS (2.39:1 Anamorphic Scope)
     if (isWidescreenScope) {
-      const barHeight = height * 0.085;
+      const barHeight = H * 0.085;
       ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, width, barHeight);
-      ctx.fillRect(0, height - barHeight, width, barHeight);
+      ctx.fillRect(0, 0, W, barHeight);
+      ctx.fillRect(0, H - barHeight, W, barHeight);
 
       // Subtle aspect ratio stamp
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.font = '10px monospace';
-      ctx.fillText('2.39:1 ANAMORPHIC SCOPE', 20, barHeight - 10);
-      ctx.fillText('LUMERIAOS USD 60FPS', width - 160, barHeight - 10);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.font = '14px monospace';
+      ctx.fillText('2.39:1 ANAMORPHIC SCOPE', 40, barHeight - 14);
+      ctx.fillText('LUMERIAOS USD 60FPS • 1920×1080 RETINA RENDER', W - 440, barHeight - 14);
     }
 
     ctx.restore();
@@ -330,6 +435,11 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
     showSkeletalRig,
     showLiDARPointCloud,
     isWidescreenScope,
+    windSpeedKmH,
+    gustiness,
+    windDirectionDeg,
+    showEthologyOverlay,
+    activeScene,
   ]);
 
   // Mouse drag handlers for manual 3D orbit
@@ -548,9 +658,9 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
             <div>
               <div className="font-bold text-xs text-white group-hover:text-emerald-300 transition-colors flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-12 transition-transform" />
-                <span>+ Generate HD</span>
+                <span>+ Generate USD Schema</span>
               </div>
-              <div className="text-[10px] text-slate-400 mt-0.5">Marshall USD Scene</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">Marshall Islands USD Scene</div>
             </div>
 
             <div className="mt-2 text-[9px] font-mono text-cyan-400 flex items-center gap-1">
@@ -611,8 +721,36 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
             </button>
           </div>
 
-          {/* Right: Sound, Widescreen & Fullscreen Controls */}
-          <div className="flex items-center gap-2">
+          {/* Right: Render Engine Selector, Sound, Widescreen & Fullscreen Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* OpenGL 3D vs 2D Canvas Engine Toggle */}
+            <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-lg p-0.5 text-xs">
+              <button
+                onClick={() => setRenderEngine('opengl-3d')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-all ${
+                  renderEngine === 'opengl-3d'
+                    ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20'
+                    : 'text-slate-400 hover:text-white font-medium'
+                }`}
+                title="Three.js WebGL / OpenGL 3D Hardware Accelerated Stage"
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                <span>OpenGL 3D</span>
+              </button>
+              <button
+                onClick={() => setRenderEngine('canvas-composite')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-all ${
+                  renderEngine === 'canvas-composite'
+                    ? 'bg-slate-800 text-slate-200 font-semibold shadow-md'
+                    : 'text-slate-400 hover:text-white font-medium'
+                }`}
+                title="2D Canvas Composite Fallback"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>2D Canvas</span>
+              </button>
+            </div>
+
             <button
               onClick={toggleAudio}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all text-xs font-semibold ${
@@ -648,19 +786,38 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
           </div>
         </div>
 
-        {/* TAB 1: Real-Time Interactive Cinematic Viewport Canvas */}
+        {/* TAB 1: Real-Time Interactive Cinematic Viewport */}
         {viewportTab === 'cinematic' && (
-          <div className="relative bg-[#020509] select-none overflow-hidden flex items-center justify-center">
-            {/* HTML5 Canvas Surface */}
+          renderEngine === 'opengl-3d' ? (
+            <OpenGlMonkeyStage
+              twin={selectedTwin}
+              activeScene={activeScene}
+              windSpeedKmH={windSpeedKmH}
+              gustiness={gustiness}
+              windDirectionDeg={windDirectionDeg}
+              cameraAnglePreset={activeCameraAngle}
+              isPlaying={isPlaying}
+              playbackSpeed={playbackSpeed}
+              showSkeletalRig={showSkeletalRig}
+              showLiDARPointCloud={showLiDARPointCloud}
+              enableSubsurfaceScattering={enableSubsurfaceScattering}
+              enableAnisotropicFur={enableAnisotropicFur}
+              isWidescreenScope={isWidescreenScope}
+              showEthologyOverlay={showEthologyOverlay}
+            />
+          ) : (
+          <div
+            ref={containerRef}
+            className="relative w-full aspect-[16/9] bg-[#020509] select-none overflow-hidden flex items-center justify-center"
+          >
+            {/* HTML5 Canvas Surface (Dynamic DPR-Aware 16:9) */}
             <canvas
               ref={canvasRef}
-              width={960}
-              height={520}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
-              className="w-full h-auto max-h-[620px] aspect-[16/9] object-contain cursor-grab active:cursor-grabbing"
+              className="w-full h-full object-contain cursor-grab active:cursor-grabbing"
             />
 
             {/* Top-Left Telemetry & Biometrics HUD Overlay */}
@@ -692,9 +849,10 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
                 </div>
 
                 <div>
-                  <span className="text-slate-400 text-[9px] block">Elevation</span>
-                  <span className="text-cyan-300 font-bold">
-                    {(selectedTwin.lumeriaOsAnimation.biometrics.canopyElevationMeters + Math.sin(currentFrame * 0.05) * 1.2).toFixed(1)}m Bough
+                  <span className="text-slate-400 text-[9px] block">Trade Wind</span>
+                  <span className="text-cyan-300 font-bold flex items-center gap-1">
+                    <Wind className="w-3 h-3 text-cyan-400" />
+                    {windSpeedKmH} km/h
                   </span>
                 </div>
 
@@ -738,9 +896,110 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
               </div>
             </div>
 
+            {/* Floating Interactive Trade Wind & Flora Physics Panel (Toggled via Pill Bar) */}
+            {showWindPanel && (
+              <div className="absolute bottom-16 left-4 bg-slate-950/90 backdrop-blur-md border border-cyan-500/40 rounded-2xl p-4 text-xs shadow-2xl space-y-3 pointer-events-auto w-72">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-1.5 font-bold text-white">
+                    <Wind className="w-4 h-4 text-cyan-400" />
+                    <span>Flora & Wind Dynamics</span>
+                  </div>
+                  <button
+                    onClick={() => setShowWindPanel(false)}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-2 text-[11px]">
+                  <div>
+                    <div className="flex justify-between text-slate-300 mb-1">
+                      <span>Pacific Trade Breeze</span>
+                      <span className="font-mono text-cyan-300 font-bold">{windSpeedKmH} km/h</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={4}
+                      max={55}
+                      value={windSpeedKmH}
+                      onChange={(e) => setWindSpeedKmH(Number(e.target.value))}
+                      className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-slate-300 mb-1">
+                      <span>Turbulence Gustiness</span>
+                      <span className="font-mono text-emerald-300 font-bold">{Math.round(gustiness * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={gustiness}
+                      onChange={(e) => setGustiness(Number(e.target.value))}
+                      className="w-full accent-emerald-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-slate-300 mb-1">
+                      <span>Wind Azimuth Angle</span>
+                      <span className="font-mono text-amber-300 font-bold">{windDirectionDeg}°</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={360}
+                      step={5}
+                      value={windDirectionDeg}
+                      onChange={(e) => setWindDirectionDeg(Number(e.target.value))}
+                      className="w-full accent-amber-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                    />
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Flower className="w-3 h-3 text-rose-400" />
+                      Hibiscus & Plumeria
+                    </span>
+                    <span className="text-emerald-400 font-mono">Dynamic Flex Active</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Bottom-Center Interactive Shaders & Overlays Pill Bar */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-full px-3.5 py-1.5 flex items-center gap-2 shadow-2xl pointer-events-auto text-[11px]">
-              <span className="text-slate-500 font-mono text-[10px] hidden md:inline">Shaders:</span>
+              <button
+                onClick={() => setShowWindPanel(!showWindPanel)}
+                className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold transition-all ${
+                  showWindPanel
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Interactive Pacific Trade Wind & Flora Physics Controls"
+              >
+                <Wind className="w-3 h-3 text-cyan-400" />
+                <span>Wind: {windSpeedKmH}km/h</span>
+              </button>
+
+              <button
+                onClick={() => setShowEthologyOverlay(!showEthologyOverlay)}
+                className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold transition-all ${
+                  showEthologyOverlay
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Species Ethology Tail Rig & Bioacoustic Vector Overlay"
+              >
+                <Activity className="w-3 h-3 text-purple-400" />
+                <span>Ethology HUD</span>
+              </button>
+
+              <div className="w-[1px] h-3.5 bg-slate-800 hidden sm:block"></div>
 
               <button
                 onClick={() => setEnableSubsurfaceScattering(!enableSubsurfaceScattering)}
@@ -751,7 +1010,7 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
                 }`}
                 title="Subsurface Scattering (Translucent Ear Cartilage & Epidermis)"
               >
-                SSS Translucent
+                SSS
               </button>
 
               <button
@@ -763,7 +1022,7 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
                 }`}
                 title="Multi-strand Anisotropic Fur Sheen & Rim Highlight"
               >
-                Fur Sheen
+                Fur
               </button>
 
               <button
@@ -775,7 +1034,7 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
                 }`}
                 title="Cinematic Depth of Field (DoF Bokeh Blur)"
               >
-                DoF Bokeh
+                DoF
               </button>
 
               <button
@@ -810,6 +1069,7 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
               <span className="text-emerald-400 font-bold">60.0 FPS</span>
             </div>
           </div>
+          )
         )}
 
         {/* TAB 2: Pixar USDA 1.0 Code View */}
@@ -1235,7 +1495,7 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
    CANVAS RENDERING HELPER FUNCTIONS
    ========================================================================= */
 
-/** Draw background sky and Pacific Horizon */
+/** Draw background sky and Pacific Horizon or High-Resolution Environment Plate */
 function drawEnvironment(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -1246,6 +1506,32 @@ function drawEnvironment(
   orbitAngle: number,
   activeScene?: CinematicUsdScene
 ) {
+  // If a high-resolution environment image is cached, draw it directly on the canvas!
+  const bgImg = activeScene?.highResImageUrl ? getCachedImage(activeScene.highResImageUrl) : null;
+  if (bgImg) {
+    ctx.save();
+    // Parallax motion based on 3D orbit angle and subtle ocean swell
+    const panX = -orbitAngle * 80;
+    const panY = Math.sin(t * Math.PI * 2) * 8;
+    ctx.drawImage(bgImg, panX - 40, panY - 30, w + 80, h + 60);
+
+    // Subtle atmospheric tint matching the scene's lighting profile
+    const timeLower = (activeScene?.timeOfDay || '').toLowerCase();
+    if (sceneId === 'emerald-dawn' || timeLower.includes('dawn')) {
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+      ctx.fillRect(0, 0, w, h);
+    } else if (sceneId === 'pacific-sunset' || timeLower.includes('sunset')) {
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
+      ctx.fillRect(0, 0, w, h);
+    } else if (sceneId === 'tropical-monsoon' || timeLower.includes('monsoon')) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.22)';
+      ctx.fillRect(0, 0, w, h);
+    }
+    ctx.restore();
+    return;
+  }
+
+  // Fallback procedural sky and Pacific Horizon
   const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
   const timeLower = (activeScene?.timeOfDay || '').toLowerCase();
 
@@ -1361,9 +1647,9 @@ function drawBackgroundCanopy(
   if (sceneId === 'volumetric-scan') return;
 
   ctx.save();
+  // We use soft alpha rather than heavy ctx.filter blur to prevent canvas softness
   if (dof) {
-    // Simulated depth of field on background
-    ctx.filter = 'blur(2.5px)';
+    ctx.globalAlpha = 0.82;
   }
 
   // Silhouette of distant Marshall atoll palms & breadfruit
@@ -1389,6 +1675,171 @@ function drawBackgroundCanopy(
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
   });
+
+  ctx.restore();
+}
+
+/** Draw animated Marshall Islands floral elements and trees with realistic motion in wind */
+function drawAnimatedFloraAndWind(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  t: number,
+  sceneId: string,
+  windSpeedKmH: number,
+  gustiness: number,
+  windDirectionDeg: number,
+  windProfile?: WindPhysicsProfile
+) {
+  if (sceneId === 'volumetric-scan') return;
+
+  ctx.save();
+
+  // Wind speed scalar (10km/h = gentle, 35km/h = strong ocean tradewind)
+  const speedNorm = Math.max(0.2, windSpeedKmH / 30);
+  const gustWave = Math.sin(t * Math.PI * 6 + gustiness * 4) * gustiness * 0.45;
+  const totalSway = speedNorm + gustWave;
+
+  // Direction vector (-1 to 1)
+  const dirRad = (windDirectionDeg * Math.PI) / 180;
+  const dirX = Math.cos(dirRad);
+
+  // 1. WIND-SWAYING COCONUT PALM & BREADFRUIT BRANCHES (LEFT OVERHANG)
+  ctx.save();
+  ctx.translate(0, 80);
+  const branchSway = Math.sin(t * Math.PI * 4 * speedNorm) * 0.08 * totalSway * dirX;
+  ctx.rotate(branchSway);
+
+  // Main arching palm rachis / bough
+  ctx.strokeStyle = '#273820';
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.moveTo(-40, 60);
+  ctx.bezierCurveTo(220, 100 + branchSway * 80, 480, 220, 620, 310);
+  ctx.stroke();
+
+  // Palm pinnate leaflets swaying in the breeze
+  ctx.strokeStyle = sceneId === 'pacific-sunset' ? '#583e18' : '#1e4828';
+  ctx.lineWidth = 3.5;
+  for (let i = 80; i < 600; i += 26) {
+    const progress = i / 600;
+    const leafSway = Math.sin(t * Math.PI * 8 * speedNorm + progress * 8) * 16 * totalSway;
+    const px = i;
+    const py = 60 + progress * 240;
+
+    // Upper leaflet
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.quadraticCurveTo(px + 40 * dirX, py - 60 + leafSway, px + 85 * dirX, py - 35 + leafSway);
+    ctx.stroke();
+
+    // Lower leaflet
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.quadraticCurveTo(px + 30 * dirX, py + 70 + leafSway, px + 75 * dirX, py + 95 + leafSway);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 2. BLOOMING MARSHALL ISLANDS FLORAL ELEMENTS (HIBISCUS & PLUMERIA)
+  const flowers = [
+    { x: 260, y: 340, size: 28, color: '#e11d48', petalColor: '#fb7185', center: '#fbbf24', type: 'hibiscus' },
+    { x: 380, y: 390, size: 22, color: '#f43f5e', petalColor: '#fda4af', center: '#f59e0b', type: 'hibiscus' },
+    { x: 190, y: 410, size: 24, color: '#facc15', petalColor: '#fef08a', center: '#d97706', type: 'plumeria' },
+    { x: w - 240, y: 280, size: 30, color: '#ffffff', petalColor: '#fef9c3', center: '#eab308', type: 'plumeria' },
+    { x: w - 340, y: 330, size: 22, color: '#ec4899', petalColor: '#f472b6', center: '#fbbf24', type: 'hibiscus' },
+  ];
+
+  flowers.forEach((fl, idx) => {
+    ctx.save();
+    const flowerFlex = Math.sin(t * Math.PI * 5 * speedNorm + idx * 1.5) * 8 * totalSway;
+    ctx.translate(fl.x + flowerFlex * dirX, fl.y + flowerFlex * 0.5);
+    ctx.rotate(flowerFlex * 0.04);
+
+    if (fl.type === 'hibiscus') {
+      // 5 overlapping flared petals
+      for (let p = 0; p < 5; p++) {
+        const pAngle = (p * Math.PI * 2) / 5;
+        ctx.save();
+        ctx.rotate(pAngle);
+        ctx.fillStyle = fl.color;
+        ctx.beginPath();
+        ctx.ellipse(fl.size * 0.8, 0, fl.size * 0.7, fl.size * 0.45, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = fl.petalColor;
+        ctx.beginPath();
+        ctx.ellipse(fl.size * 0.5, 0, fl.size * 0.4, fl.size * 0.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Long prominent stamen tube swaying in wind
+      const stamenBend = Math.sin(t * Math.PI * 6 + idx) * 5 * totalSway;
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(fl.size * 0.6, -10, fl.size * 1.3 + stamenBend, -18);
+      ctx.stroke();
+
+      // Golden anthers at tip
+      ctx.fillStyle = fl.center;
+      for (let a = 0; a < 6; a++) {
+        ctx.beginPath();
+        ctx.arc(fl.size * 1.2 + a * 2 + stamenBend, -18 + (a % 3) * 2, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else {
+      // Plumeria (Frangipani) - 5 spiral pinwheel petals
+      for (let p = 0; p < 5; p++) {
+        const pAngle = (p * Math.PI * 2) / 5 + t * 0.1;
+        ctx.save();
+        ctx.rotate(pAngle);
+        ctx.fillStyle = fl.color;
+        ctx.beginPath();
+        ctx.ellipse(fl.size * 0.75, fl.size * 0.25, fl.size * 0.6, fl.size * 0.35, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Yellow radiating center
+        ctx.fillStyle = fl.center;
+        ctx.beginPath();
+        ctx.ellipse(fl.size * 0.3, fl.size * 0.1, fl.size * 0.25, fl.size * 0.15, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    ctx.restore();
+  });
+
+  // 3. DRIFTING WIND-BLOWN PETALS & POLLEN ACROSS CANOPY
+  const petalCount = 28;
+  for (let i = 0; i < petalCount; i++) {
+    const seed = i * 67;
+    const progress = (t * 0.45 * speedNorm + i / petalCount) % 1;
+    const px = (progress * (w + 400) * dirX + seed) % (w + 200);
+    const py = (seed * 11 + Math.sin(progress * Math.PI * 6 + i) * 65 + progress * 220) % (h * 0.85);
+
+    const petalRot = t * 4 + i * 2;
+    const petalScale = 0.6 + (i % 4) * 0.3;
+
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(petalRot);
+    ctx.scale(petalScale, petalScale);
+
+    ctx.fillStyle =
+      i % 3 === 0
+        ? 'rgba(244, 63, 94, 0.75)'
+        : i % 3 === 1
+        ? 'rgba(254, 240, 138, 0.85)'
+        : 'rgba(251, 146, 60, 0.75)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 9, 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 
   ctx.restore();
 }
@@ -1538,7 +1989,10 @@ function drawHyperrealisticSimian(
     enableAnisotropicFur: boolean;
     showSkeletalRig: boolean;
     showLiDARPointCloud: boolean;
-  }
+  },
+  showEthologyOverlay?: boolean,
+  windSpeedKmH?: number,
+  windDirectionDeg?: number
 ) {
   ctx.save();
 
@@ -1572,21 +2026,33 @@ function drawHyperrealisticSimian(
   // Procedural Kinematic Variables
   const breath = Math.sin(t * Math.PI * 4) * 2.5; // Chest expansion
   const saccade = Math.sin(t * Math.PI * 6) * 1.5; // Head micro-turn
-  const tailWave = Math.sin(t * Math.PI * 3); // Tail dynamic counterbalance
   const limbFlex = Math.sin(t * Math.PI * 2) * 6; // Quadrupedal limb shift
 
-  // 1. DYNAMIC PREHENSILE TAIL (8-segment verlet physics curve)
+  // Ethology tail language profile parameters from published literature
+  const ethPattern = twin.ethologyProfile?.tailLanguageRepertoire[0];
+  const tailAngleDeg = ethPattern ? ethPattern.angleDegrees : 65;
+  const twitchHz = ethPattern ? ethPattern.twitchFrequencyHz : 1.2;
+  const curvature = ethPattern ? ethPattern.curvature : 0.4;
+  const tailTwitch = Math.sin(t * Math.PI * 2 * twitchHz) * (twitchHz > 0 ? 9 : 1);
+  const windTailDeflection = ((windSpeedKmH || 20) / 35) * Math.sin(t * Math.PI * 4) * 7;
+
+  // 1. DYNAMIC PREHENSILE TAIL (Vertebral curve driven by ethology profile & wind)
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(70, 10 + breath * 0.3);
-  ctx.bezierCurveTo(
-    110 + tailWave * 15,
-    -10 + tailWave * 20,
-    140 - tailWave * 20,
-    -60 + tailWave * 15,
-    115 + tailWave * 25,
-    -95 + tailWave * 10
-  );
+
+  // Calculate bezier control points shaped by tail posture angle & curvature
+  const tailBaseX = 70;
+  const tailBaseY = 10 + breath * 0.3;
+  const rad = (tailAngleDeg * Math.PI) / 180;
+  const cp1X = tailBaseX + Math.cos(rad) * 45 + tailTwitch * 0.5;
+  const cp1Y = tailBaseY - Math.sin(rad) * 45 + windTailDeflection * 0.5;
+  const cp2X = tailBaseX + Math.cos(rad * 0.8) * 90 + curvature * 30 + tailTwitch;
+  const cp2Y = tailBaseY - Math.sin(rad * 0.8) * 90 - curvature * 25 + windTailDeflection;
+  const endX = tailBaseX + Math.cos(rad * 0.6) * 125 + curvature * 50 + tailTwitch * 1.2;
+  const endY = tailBaseY - Math.sin(rad * 0.6) * 125 - curvature * 45 + windTailDeflection * 1.4;
+
+  ctx.bezierCurveTo(cp1X, cp1Y, cp2X, cp2Y, endX, endY);
   ctx.lineWidth = 9;
   ctx.lineCap = 'round';
   ctx.strokeStyle = sceneId === 'pacific-sunset' ? '#451a03' : '#271810';
@@ -1684,11 +2150,22 @@ function drawHyperrealisticSimian(
   ctx.save();
   ctx.translate(-42 + saccade * 0.5, -34);
 
-  // Skull & Fur Crown
-  ctx.fillStyle = sceneId === 'pacific-sunset' ? '#592008' : '#331f14';
-  ctx.beginPath();
-  ctx.arc(0, 0, 26, 0, Math.PI * 2);
-  ctx.fill();
+    // Skull & Fur Crown
+    ctx.fillStyle = sceneId === 'pacific-sunset' ? '#592008' : '#331f14';
+    ctx.beginPath();
+    ctx.arc(0, 0, 26, 0, Math.PI * 2);
+    ctx.fill();
+
+    // High-Resolution Photographic Portrait Blend (if loaded)
+    const portraitImg = twin.imageUrl ? getCachedImage(twin.imageUrl) : null;
+    if (portraitImg) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(-8, 4, 22, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(portraitImg, -30, -18, 44, 44);
+      ctx.restore();
+    }
 
   // Ears with SUBSURFACE SCATTERING (SSS) - Light shines through cartilage!
   if (shaders.enableSubsurfaceScattering) {
@@ -1840,6 +2317,79 @@ function drawHyperrealisticSimian(
       ctx.arc(px, py, 1.2, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
+  }
+
+  // 8. ETHOLOGICAL TELEMETRY & BIOACOUSTIC VECTOR HUD
+  if (showEthologyOverlay && twin.ethologyProfile) {
+    ctx.save();
+    ctx.translate(95, -110);
+    ctx.scale(1 / scale, 1 / scale);
+
+    const eth = twin.ethologyProfile;
+    const tailPattern = eth.tailLanguageRepertoire[0];
+    const topVocal = eth.vocalizationRepertoire[0];
+
+    // HUD background glass container
+    ctx.fillStyle = 'rgba(3, 7, 18, 0.88)';
+    ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(0, 0, 270, 130, 10) : ctx.rect(0, 0, 270, 130);
+    ctx.fill();
+    ctx.stroke();
+
+    // HUD Header
+    ctx.fillStyle = '#c084fc';
+    ctx.font = 'bold 11px monospace';
+    ctx.fillText('ETHOLOGY TELEMETRY VECTOR', 14, 20);
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '9px monospace';
+    ctx.fillText(eth.scientificName.toUpperCase(), 14, 34);
+
+    // Tail State
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('Tail Signal:', 14, 54);
+    ctx.fillStyle = '#34d399';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText(`${tailPattern.postureName} (${tailPattern.angleDegrees}°)`, 82, 54);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('Intent:', 14, 72);
+    ctx.fillStyle = '#fef08a';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.fillText(tailPattern.communicativeDirection.split('(')[0], 82, 72);
+
+    // Vocal State
+    if (topVocal) {
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px sans-serif';
+      ctx.fillText('Acoustic F0:', 14, 90);
+      ctx.fillStyle = '#e879f9';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText(`${topVocal.callName} (${topVocal.fundamentalFrequencyHz} Hz)`, 82, 90);
+    }
+
+    // Tradewind Velocity
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('Pacific Wind:', 14, 108);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText(`${windSpeedKmH || 20} km/h • Tradewinds`, 82, 108);
+
+    // Connecting laser line to tail sacral base
+    ctx.strokeStyle = 'rgba(168, 85, 247, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(0, 50);
+    ctx.lineTo(-25, 75);
+    ctx.stroke();
+
     ctx.restore();
   }
 

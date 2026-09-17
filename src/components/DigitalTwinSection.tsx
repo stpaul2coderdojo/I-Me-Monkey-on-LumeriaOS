@@ -14,6 +14,7 @@ import {
 } from '../data/digitalTwinData';
 import { CINEMATIC_USD_SCENES } from '../data/cinematicUsdScenes';
 import { CinematicUsdStage } from './CinematicUsdStage';
+import { PrimateEthologyStudio } from './PrimateEthologyStudio';
 import { 
   Play, 
   Pause, 
@@ -44,14 +45,16 @@ import {
   Info,
   Wand2,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  BookOpen
 } from 'lucide-react';
 
 interface DigitalTwinSectionProps {
-  activeAccount: WalletAccount;
-  currentNetwork: BlockchainNetwork;
+  activeAccount?: WalletAccount;
+  currentNetwork?: BlockchainNetwork;
   onNavigateToGovernance?: () => void;
   onNavigateToWalletPass?: () => void;
+  onNavigateToSemiotics?: () => void;
 }
 
 export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
@@ -59,11 +62,12 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
   currentNetwork,
   onNavigateToGovernance,
   onNavigateToWalletPass,
+  onNavigateToSemiotics,
 }) => {
   const [digitalTwins, setDigitalTwins] = useState<MonkeyDigitalTwin[]>(INITIAL_DIGITAL_TWINS);
   const [cinematicScenes, setCinematicScenes] = useState<CinematicUsdScene[]>(CINEMATIC_USD_SCENES);
   const [selectedTwinId, setSelectedTwinId] = useState<string>(INITIAL_DIGITAL_TWINS[0].id);
-  const [viewMode, setViewMode] = useState<'cinematic-usd' | 'cards' | 'json-editor' | 'create-form'>('cinematic-usd');
+  const [viewMode, setViewMode] = useState<'cinematic-usd' | 'ethology-studio' | 'cards' | 'json-editor' | 'create-form'>('cinematic-usd');
   const [usdTab, setUsdTab] = useState<'spatial-viewport' | 'usda-code' | 'mesh-hierarchy' | 'bio-usd'>('spatial-viewport');
   
   // Antigravity Bio generation state
@@ -414,6 +418,18 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
             </button>
 
             <button
+              onClick={() => setViewMode('ethology-studio')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all w-full justify-center ${
+                viewMode === 'ethology-studio'
+                  ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 text-white shadow-lg shadow-purple-600/30 ring-1 ring-purple-400'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Activity className="w-4 h-4 text-purple-300" />
+              <span>Tail & Vocal Ethology</span>
+            </button>
+
+            <button
               onClick={() => setViewMode('cards')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all w-full justify-center ${
                 viewMode === 'cards'
@@ -448,6 +464,16 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
               <Plus className="w-4 h-4" />
               <span>Register Primate</span>
             </button>
+
+            {onNavigateToSemiotics && (
+              <button
+                onClick={onNavigateToSemiotics}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all w-full justify-center bg-purple-950/50 hover:bg-purple-900/70 text-purple-300 border border-purple-500/40"
+              >
+                <BookOpen className="w-4 h-4 text-purple-400" />
+                <span>Semiotics Lexicon (USD)</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -533,6 +559,17 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
               View Primate Cards Gallery
             </button>
           </div>
+        </div>
+      )}
+
+      {/* VIEW MODE: PRIMATE TAIL & VOCAL ETHOLOGY STUDIO */}
+      {viewMode === 'ethology-studio' && (
+        <div className="space-y-8 animate-in fade-in duration-300">
+          <PrimateEthologyStudio
+            selectedTwin={selectedTwin}
+            allTwins={digitalTwins}
+            onSelectTwin={(twinId) => setSelectedTwinId(twinId)}
+          />
         </div>
       )}
 

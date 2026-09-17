@@ -11,7 +11,8 @@ import {
   Rocket, 
   Layers,
   Box,
-  TreePine
+  TreePine,
+  BookOpen
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -104,6 +105,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Box className="w-4 h-4 text-emerald-400" />
               <span>Digital Twin</span>
               <span className="px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                USD
+              </span>
+            </button>
+
+            <button
+              onClick={() => onSelectTab('semiotics')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                activeTab === 'semiotics'
+                  ? 'bg-slate-800 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 text-purple-400" />
+              <span>Semiotics Lexicon</span>
+              <span className="px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
                 USD
               </span>
             </button>
@@ -232,6 +248,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Box className="w-4 h-4" />
             <span>Twin (USD)</span>
+          </button>
+          <button
+            onClick={() => onSelectTab('semiotics')}
+            className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-lg ${activeTab === 'semiotics' ? 'text-purple-400 font-bold' : 'text-slate-400'}`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Semiotics</span>
           </button>
           <button
             onClick={() => onSelectTab('wallet-pass')}

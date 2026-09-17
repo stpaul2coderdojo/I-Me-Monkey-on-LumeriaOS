@@ -39,7 +39,7 @@ export interface WalletAccount {
   avatarSeed: string;
 }
 
-export type NavTabType = 'overview' | 'proposals' | 'digital-twin' | 'wallet-pass' | 'startups' | 'staking';
+export type NavTabType = 'overview' | 'proposals' | 'digital-twin' | 'semiotics' | 'wallet-pass' | 'startups' | 'staking';
 
 export type ProposalStatus = 'active' | 'passed' | 'executed' | 'queued' | 'defeated';
 export type ProposalCategory = 
@@ -93,6 +93,15 @@ export interface MarshallIslandsHavenLocation {
   canopyShadeCoverage: number; // e.g. 92%
 }
 
+export interface WindPhysicsProfile {
+  windSpeedKmH: number;
+  windDirectionDeg?: number;
+  directionDegrees?: number;
+  gustiness: number;
+  floralTypes?: string[];
+  treeSpecies?: string[];
+}
+
 export interface CinematicUsdScene {
   id: string;
   title: string;
@@ -107,13 +116,7 @@ export interface CinematicUsdScene {
   moodColor: string;
   usdaCode: string;
   highResImageUrl?: string;
-  windPhysics?: {
-    windSpeedKmH: number; // e.g. 18
-    windDirectionDeg: number; // e.g. 75
-    gustiness: number; // 0-1
-    floralTypes: string[];
-    treeSpecies: string[];
-  };
+  windPhysics?: WindPhysicsProfile;
   cameraAngles: Array<{ id: string; label: string; fov: number }>;
 }
 
@@ -141,12 +144,14 @@ export interface BodyLanguageGesture {
   socialFunction: string;
   publishedLiterature: {
     citation: string;
-    context: string;
+    context?: string;
+    keyFinding?: string;
   };
   youtubeReference: {
     title: string;
     channelOrSource: string;
-    searchQuery: string;
+    searchQuery?: string;
+    videoQuery?: string;
   };
 }
 
@@ -162,11 +167,13 @@ export interface PrimateVocalization {
   semanticDirection: string;
   publishedLiterature: {
     citation: string;
-    acousticAnalysis: string;
+    acousticAnalysis?: string;
+    keyFinding?: string;
   };
   youtubeReference: {
     title: string;
-    videoQuery: string;
+    videoQuery?: string;
+    searchQuery?: string;
     channelOrSource: string;
   };
 }
@@ -278,4 +285,62 @@ export interface GoogleForStartupsGrantApp {
   }[];
   isAiGenerated: boolean;
   ratificationProposalId?: number;
+}
+
+export type SemioticsModality = 'tail' | 'body' | 'vocal' | 'facial';
+
+export interface SemioticsSignal {
+  id: string;
+  name: string;
+  latinOrScientificName: string;
+  modality: SemioticsModality;
+  species: string;
+  socialContext: string;
+  communicativeIntent: string;
+  physicalParameters: string;
+  usdToken: string;
+  usdLayerProperty: string;
+  acousticFrequencyHz?: number;
+  intensityScale: number; // 1 to 10
+  literatureCitation: string;
+  ethogramCode: string;
+}
+
+export interface PrimateBioData {
+  name: string;
+  species: string;
+  estimatedAge: number | string;
+  gender: 'Female' | 'Male' | 'Juvenile';
+  rescueOrigin: string;
+  havenAtoll: string;
+  observedBehaviors: string;
+  dietPreferences: string;
+  photoUrl?: string;
+  confirmedByUser: boolean;
+}
+
+export interface MotionModelKeyframe {
+  frame: number;
+  timeSec: number;
+  tailAngleDeg: number;
+  tailCurvature: number;
+  spineFlexion: number;
+  headYawDeg: number;
+  earRetraction: number;
+  facialLipSmack: number;
+}
+
+export interface SemioticsCodex {
+  speciesName: string;
+  primateBio: PrimateBioData;
+  signals: SemioticsSignal[];
+  usdSchemaAscii: string;
+  motionModel: {
+    motionModelId: string;
+    targetRig: string;
+    fps: number;
+    durationSeconds: number;
+    keyframes: MotionModelKeyframe[];
+  };
+  generatedAt: string;
 }

@@ -1,4 +1,7 @@
 import { CinematicUsdScene } from '../types';
+import majuroCanopyImg from '../assets/images/majuro_atoll_canopy_1789493505604.jpg';
+import jaluitLagoonImg from '../assets/images/jaluit_lagoon_canopy_1789493520170.jpg';
+import arnoFloralImg from '../assets/images/arno_floral_wind_1789493537493.jpg';
 
 export const CINEMATIC_USD_SCENES: CinematicUsdScene[] = [
   {
@@ -13,6 +16,14 @@ export const CINEMATIC_USD_SCENES: CinematicUsdScene[] = [
     weather: 'Tropical Morning Mist (26.2°C, 82% Humidity, 12kt Trade Winds)',
     primaryAction: 'High Bough Quadrupedal Traverse & Prehensile Balance',
     moodColor: '#10b981',
+    highResImageUrl: majuroCanopyImg,
+    windPhysics: {
+      windSpeedKmH: 18.5,
+      windDirectionDeg: 65,
+      gustiness: 0.45,
+      floralTypes: ['Hibiscus rosa-sinensis (Red & Gold)', 'Plumeria alba (White Frangipani)', 'Pandanus Blossom'],
+      treeSpecies: ['Artocarpus altilis (Breadfruit)', 'Calophyllum inophyllum (Alexandrian Laurel)', 'Cocos nucifera']
+    },
     cameraAngles: [
       { id: 'tracking', label: 'Cinematic Tracking', fov: 42 },
       { id: 'close-up', label: 'Fur Macro Close-up', fov: 24 },
@@ -121,6 +132,14 @@ def Xform "Cinematic_Stage_Dawn"
     weather: 'Balmy Pacific Evening (27.8°C, Gentle Salt-Air Sea Spray, 8kt Breeze)',
     primaryAction: 'Suspension Bridge Agile Glide & Sunset Horizon Gaze',
     moodColor: '#f59e0b',
+    highResImageUrl: jaluitLagoonImg,
+    windPhysics: {
+      windSpeedKmH: 14.8,
+      windDirectionDeg: 80,
+      gustiness: 0.35,
+      floralTypes: ['Pacific Coastal Orchids (Dendrobium)', 'Red Coral Hibiscus', 'Scaevola taccada (Beach Cabbage)'],
+      treeSpecies: ['Rhizophora stylosa (Mangrove)', 'Tournefortia argentea', 'Cocos nucifera']
+    },
     cameraAngles: [
       { id: 'tracking', label: 'Steadicam Follow', fov: 46 },
       { id: 'profile', label: 'Sunset Silhouette Profile', fov: 32 },
@@ -175,6 +194,14 @@ def Xform "Cinematic_Stage_Sunset"
     weather: 'Warm Tropical Monsoon Shower (25.4°C, 96% Humidity, Gentle Raindrops)',
     primaryAction: 'Raindrop Grooming, Reflexive Ear Twitches & Emotive Micro-Saccades',
     moodColor: '#38bdf8',
+    highResImageUrl: majuroCanopyImg,
+    windPhysics: {
+      windSpeedKmH: 22.4,
+      windDirectionDeg: 110,
+      gustiness: 0.65,
+      floralTypes: ['Bioluminescent Forest Spores', 'Night-blooming Jasmine', 'Tropical Fern Petals'],
+      treeSpecies: ['Artocarpus altilis (Breadfruit)', 'Intsia bijuga', 'Barringtonia asiatica']
+    },
     cameraAngles: [
       { id: 'macro-portrait', label: 'Fur Droplets Macro', fov: 22 },
       { id: 'biolum-canopy', label: 'Bioluminescent Canopy', fov: 52 },
@@ -226,6 +253,14 @@ def Xform "Cinematic_Stage_Monsoon"
     weather: 'Crystal Pacific Sunshine (28.9°C, 74% Humidity, 15kt Tradewinds)',
     primaryAction: 'Expansive Canopy Overstory Leap & Vigorous Tree Canopy Sway',
     moodColor: '#ec4899',
+    highResImageUrl: arnoFloralImg,
+    windPhysics: {
+      windSpeedKmH: 26.0,
+      windDirectionDeg: 72,
+      gustiness: 0.58,
+      floralTypes: ['Pink Pacific Hibiscus', 'Plumeria rubra (Pink Frangipani Blossoms)', 'Wild Marsh Orchids'],
+      treeSpecies: ['Pisonia grandis (Native Polynesian Bough)', 'Guettarda speciosa', 'Pandanus tectorius']
+    },
     cameraAngles: [
       { id: 'wide-crane', label: 'Ultra-Wide Canopy Crane', fov: 72 },
       { id: 'mid-stride', label: 'Dynamic Mid-Air Leap', fov: 45 },
@@ -270,6 +305,14 @@ def Xform "Cinematic_Stage_Awakening"
     weather: 'Virtual Cleanroom Calibration Environment',
     primaryAction: '360° Turntable Kinematic Range-of-Motion & Joint Flexing',
     moodColor: '#a855f7',
+    highResImageUrl: majuroCanopyImg,
+    windPhysics: {
+      windSpeedKmH: 6.5,
+      windDirectionDeg: 45,
+      gustiness: 0.15,
+      floralTypes: ['LiDAR Calibration Particles', 'Virtual Hibiscus Petals'],
+      treeSpecies: ['Digital Twin Miyawaki Mesh (Majuro Zone 1)']
+    },
     cameraAngles: [
       { id: 'turntable', label: '360° Studio Turntable', fov: 35 },
       { id: 'skeletal-ik', label: 'Skeletal Rig & Joint Bones', fov: 40 },

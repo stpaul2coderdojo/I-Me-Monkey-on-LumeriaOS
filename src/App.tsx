@@ -23,6 +23,7 @@ import { GoogleForStartupsSection } from './components/GoogleForStartupsSection'
 import { GovernanceSection } from './components/GovernanceSection';
 import { StakingBridgeSection } from './components/StakingBridgeSection';
 import { DigitalTwinSection } from './components/DigitalTwinSection';
+import { SemioticsLexicon } from './components/SemioticsLexicon';
 import { WalletModal } from './components/WalletModal';
 import { CheckCircle2, Info } from 'lucide-react';
 
@@ -164,8 +165,17 @@ export default function App() {
 
         {activeTab === 'digital-twin' && (
           <DigitalTwinSection
+            activeAccount={activeAccount}
+            currentNetwork={currentNetwork}
             onNavigateToGovernance={() => setActiveTab('proposals')}
             onNavigateToWalletPass={() => setActiveTab('wallet-pass')}
+            onNavigateToSemiotics={() => setActiveTab('semiotics')}
+          />
+        )}
+
+        {activeTab === 'semiotics' && (
+          <SemioticsLexicon
+            onNavigateToStage={() => setActiveTab('digital-twin')}
           />
         )}
 
@@ -222,7 +232,7 @@ export default function App() {
             </button>
             <span>•</span>
             <a
-              href="https://github.com/I-Me-Monkey-DAO/DAO"
+              href="https://github.com/stpaul2coderdojo/I-Me-Monkey-on-LumeriaOS"
               target="_blank"
               rel="noreferrer"
               className="hover:text-slate-300 transition-colors"

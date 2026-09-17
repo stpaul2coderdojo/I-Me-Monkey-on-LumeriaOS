@@ -1,4 +1,5 @@
 import { MonkeyDigitalTwin } from '../types';
+import { PRIMATE_ETHOLOGY_PROFILES } from './primateEthologyData';
 import kokoaImg from '../assets/images/kokoa_rhesus_portrait_1789492570933.jpg';
 import jacoImg from '../assets/images/jaco_macaque_portrait_1789492587566.jpg';
 import mayaImg from '../assets/images/maya_capuchin_portrait_1789492602501.jpg';
@@ -166,6 +167,7 @@ def Xform "RescuedPrimate_Kokoa" (
     googleWalletTwinBadge: true,
     favoriteForage: 'Fresh Marshallese Breadfruit & Ripe Papaya',
     socialTroopName: 'Sunrise Canopy Troop',
+    ethologyProfile: PRIMATE_ETHOLOGY_PROFILES['rhesus-macaque'],
   },
   {
     id: 'DT-MKY-002',
@@ -251,6 +253,7 @@ def Xform "RescuedPrimate_Jaco" (
     googleWalletTwinBadge: true,
     favoriteForage: 'Native Marshallese Coconut Flesh & Pandanus Fruit',
     socialTroopName: 'Lagoon Explorers Troop',
+    ethologyProfile: PRIMATE_ETHOLOGY_PROFILES['long-tailed-macaque'],
   },
   {
     id: 'DT-MKY-003',
@@ -336,6 +339,7 @@ def Xform "RescuedPrimate_Maya" (
     googleWalletTwinBadge: true,
     favoriteForage: 'Tender Hibiscus Flowers & Crushed Macadamia',
     socialTroopName: 'Sunrise Canopy Troop',
+    ethologyProfile: PRIMATE_ETHOLOGY_PROFILES['white-faced-capuchin'],
   },
   {
     id: 'DT-MKY-004',
@@ -421,6 +425,7 @@ def Xform "RescuedPrimate_Baron" (
     googleWalletTwinBadge: true,
     favoriteForage: 'Sweet Bananas & Chilled Coconut Milk',
     socialTroopName: 'Peaceful Canopy Elders',
+    ethologyProfile: PRIMATE_ETHOLOGY_PROFILES['pig-tailed-macaque'],
   },
   {
     id: 'DT-MKY-005',
@@ -506,5 +511,6 @@ def Xform "RescuedPrimate_Zephyr" (
     googleWalletTwinBadge: true,
     favoriteForage: 'Tender Breadfruit Shoots & Wild Island Figs',
     socialTroopName: 'Lagoon Explorers Troop',
+    ethologyProfile: PRIMATE_ETHOLOGY_PROFILES['vervet-monkey'],
   },
 ];
