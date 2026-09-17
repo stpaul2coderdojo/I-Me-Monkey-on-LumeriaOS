@@ -1,7 +1,25 @@
 {
-  "name": "react-example",
+  "name": "i-me-monkey-dao",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Cross-Chain Primate Conservation DApp on Ethereum & Avalanche with Google Wallet Tokenization, Google Antigravity Autonomous Systems, and LumeriaOS Pixar USD Digital Twins",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/I-Me-Monkey-DAO/DAO.git"
+  },
+  "keywords": [
+    "dao",
+    "cross-chain",
+    "ethereum",
+    "avalanche",
+    "google-wallet",
+    "antigravity",
+    "pixar-usd",
+    "semiotics",
+    "primate-conservation"
+  ],
+  "author": "I-Me-Monkey DAO Community",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",

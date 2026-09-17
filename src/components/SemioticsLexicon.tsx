@@ -66,7 +66,14 @@ export const SemioticsLexicon: React.FC<SemioticsLexiconProps> = ({
   // 2. Camera Imaging State
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const simulatedCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [isSimulatedFeed, setIsSimulatedFeed] = useState<boolean>(false);
+  const [cameraFacingMode, setCameraFacingMode] = useState<'user' | 'environment'>('user');
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(
     'https://images.unsplash.com/photo-1540573133985-87b6da6d54a9?auto=format&fit=crop&w=800&q=80'
   );
@@ -160,51 +167,311 @@ export const SemioticsLexicon: React.FC<SemioticsLexiconProps> = ({
     });
   }, [searchQuery, selectedModality, selectedSpeciesFilter]);
 
-  // Camera Management
-  const startCamera = async () => {
-    setCameraError(null);
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera access API is not supported in this environment.');
+  // Camera Lifecycle & Cleanup
+  useEffect(() => {
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' },
-      });
+    };
+  }, []);
+
+  // Canvas loop for Simulated Sanctuary Telemetry Cam
+  useEffect(() => {
+    if (!isSimulatedFeed || !simulatedCanvasRef.current) return;
+    const canvas = simulatedCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    let frame = 0;
+
+    const render = () => {
+      frame++;
+      canvas.width = canvas.clientWidth || 640;
+      canvas.height = canvas.clientHeight || 360;
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // 1. Tropical Pacific Canopy Background
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+      skyGrad.addColorStop(0, '#0f2937');
+      skyGrad.addColorStop(0.5, '#1e3a47');
+      skyGrad.addColorStop(1, '#064e3b');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Lush foliage layers
+      const time = frame * 0.03;
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = `rgba(16, 185, 129, ${0.12 + i * 0.04})`;
+        ctx.beginPath();
+        const boughX = (w / 6) * i + Math.sin(time + i) * 15;
+        const boughY = h * 0.6 + Math.cos(time + i * 0.7) * 10;
+        ctx.arc(boughX, boughY, 90 + i * 15, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Breadfruit Branch Perch
+      ctx.strokeStyle = '#3d271d';
+      ctx.lineWidth = 18;
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.72);
+      ctx.bezierCurveTo(w * 0.3, h * 0.68, w * 0.7, h * 0.76, w, h * 0.7);
+      ctx.stroke();
+
+      // Rescued Primate Body Silhouette
+      const monkeyX = w * 0.5 + Math.sin(time * 0.8) * 6;
+      const monkeyY = h * 0.56 + Math.cos(time * 0.9) * 4;
+
+      // Primate Torso
+      ctx.fillStyle = '#6b4226';
+      ctx.beginPath();
+      ctx.ellipse(monkeyX, monkeyY, 34, 48, 0.15, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Primate Head
+      const headX = monkeyX - 22 + Math.sin(time) * 3;
+      const headY = monkeyY - 48 + Math.cos(time * 1.2) * 2;
+      ctx.beginPath();
+      ctx.arc(headX, headY, 24, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Primate Muzzle
+      ctx.fillStyle = '#d97706';
+      ctx.beginPath();
+      ctx.arc(headX - 14, headY + 5, 12, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Articulated Dynamic Tail
+      ctx.strokeStyle = '#5a361e';
+      ctx.lineWidth = 9;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(monkeyX + 26, monkeyY + 12);
+      const tailCtrlX = monkeyX + 70 + Math.sin(time * 1.5) * 18;
+      const tailCtrlY = monkeyY - 30 + Math.cos(time * 1.3) * 25;
+      const tailEndX = monkeyX + 90 + Math.sin(time * 2.1) * 22;
+      const tailEndY = monkeyY - 5 + Math.cos(time * 1.8) * 18;
+      ctx.bezierCurveTo(tailCtrlX, tailCtrlY, tailCtrlX + 20, tailCtrlY + 30, tailEndX, tailEndY);
+      ctx.stroke();
+
+      // Computer Vision Bounding Box & HUD
+      const boxPad = 14;
+      const bx = headX - 35 - boxPad;
+      const by = headY - 30 - boxPad;
+      const bw = monkeyX + 105 - bx + boxPad;
+      const bh = monkeyY + 60 - by + boxPad;
+
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(bx, by, bw, bh);
+
+      // Corner Reticles
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      const cornerLen = 14;
+      ctx.beginPath();
+      ctx.moveTo(bx, by + cornerLen);
+      ctx.lineTo(bx, by);
+      ctx.lineTo(bx + cornerLen, by);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(bx + bw - cornerLen, by);
+      ctx.lineTo(bx + bw, by);
+      ctx.lineTo(bx + bw, by + cornerLen);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(bx, by + bh - cornerLen);
+      ctx.lineTo(bx, by + bh);
+      ctx.lineTo(bx + cornerLen, by + bh);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(bx + bw - cornerLen, by + bh);
+      ctx.lineTo(bx + bw, by + bh);
+      ctx.lineTo(bx + bw, by + bh - cornerLen);
+      ctx.stroke();
+
+      // Tag
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.9)';
+      ctx.fillRect(bx, by - 20, 165, 20);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px JetBrains Mono, monospace';
+      ctx.fillText('SPECIES: MACACA (98.4%)', bx + 6, by - 6);
+
+      // Tail angle vector
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.8)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(monkeyX + 26, monkeyY + 12);
+      ctx.lineTo(tailEndX, tailEndY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Top Telemetry Bar
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(0, 0, w, 28);
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(16, 14, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.fillText('LIVE • RMI MAJURO ARBOREAL CAM 01', 28, 17);
+
+      const now = new Date();
+      const timeStr = now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(timeStr, Math.max(200, w - 190), 17);
+
+      // Bottom Telemetry
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(0, h - 24, w, 24);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText(`60 FPS • SENSOR ISO 400 • TAIL ELEVATION: ${Math.round(35 + Math.sin(time) * 15)}°`, 14, h - 8);
+
+      animId = requestAnimationFrame(render);
+    };
+
+    render();
+    return () => cancelAnimationFrame(animId);
+  }, [isSimulatedFeed]);
+
+  // Robust Camera Management
+  const startCamera = async (facing: 'user' | 'environment' = cameraFacingMode) => {
+    setCameraError(null);
+    setIsSimulatedFeed(false);
+
+    // Stop existing tracks first
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+
+    try {
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error('Camera access (getUserMedia) is not supported in this browser or iframe.');
+      }
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: facing },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+      } catch {
+        // Fallback to basic video constraint without strict facingMode
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+
+      mediaStreamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch {
+          // Play handled via onLoadedMetadata
+        }
       }
       setIsCameraActive(true);
+      setSuccessToast('Live camera feed connected.');
+      setTimeout(() => setSuccessToast(null), 3500);
     } catch (err: any) {
-      setCameraError(err.message || 'Unable to access live camera stream. Using high-resolution curated primate plate.');
+      console.warn('Camera stream error:', err);
+      let message = 'Unable to access camera hardware.';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        message = 'Camera permission was denied. You can enable it in your browser address bar, or use our Live Sanctuary Stream or Photo Upload below.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        message = 'No camera device found. You can use our Live Sanctuary Stream or Photo Upload.';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        message = 'Camera hardware is busy in another program. Please close other camera apps and retry.';
+      } else if (err.message) {
+        message = err.message;
+      }
+      setCameraError(message);
       setIsCameraActive(false);
     }
   };
 
+  const toggleCameraFacingMode = () => {
+    const nextMode = cameraFacingMode === 'user' ? 'environment' : 'user';
+    setCameraFacingMode(nextMode);
+    if (isCameraActive) {
+      startCamera(nextMode);
+    }
+  };
+
+  const startSimulatedFeed = () => {
+    stopCamera();
+    setCameraError(null);
+    setIsSimulatedFeed(true);
+    setSuccessToast('Connected to RMI Majuro Sanctuary Remote Telemetry Webstream #01');
+    setTimeout(() => setSuccessToast(null), 3500);
+  };
+
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach((track) => track.stop());
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
+    setIsSimulatedFeed(false);
   };
 
   const captureSnapshot = () => {
-    if (!videoRef.current) return;
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth || 640;
-    canvas.height = videoRef.current.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    if (isCameraActive && videoRef.current) {
+      canvas.width = videoRef.current.videoWidth || 1280;
+      canvas.height = videoRef.current.videoHeight || 720;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+        setCapturedImage(dataUrl);
+        setBioData((prev) => ({ ...prev, photoUrl: dataUrl }));
+        stopCamera();
+        setSuccessToast('Live camera frame captured! Ready for bio confirmation.');
+        setTimeout(() => setSuccessToast(null), 4000);
+      }
+    } else if (isSimulatedFeed && simulatedCanvasRef.current) {
+      const dataUrl = simulatedCanvasRef.current.toDataURL('image/jpeg', 0.92);
       setCapturedImage(dataUrl);
       setBioData((prev) => ({ ...prev, photoUrl: dataUrl }));
-      stopCamera();
-      setSuccessToast('Live primate image captured! Proceed to bio verification.');
+      setIsSimulatedFeed(false);
+      setSuccessToast('Live sanctuary feed snapshot captured! Ready for bio confirmation.');
       setTimeout(() => setSuccessToast(null), 4000);
     }
+  };
+
+  const handleFileUpload = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setCameraError('Please upload a valid image file (JPEG, PNG, WEBP).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        stopCamera();
+        setCapturedImage(result);
+        setBioData((prev) => ({ ...prev, photoUrl: result }));
+        setCameraError(null);
+        setSuccessToast(`Uploaded primate image "${file.name}" for bio analysis.`);
+        setTimeout(() => setSuccessToast(null), 4000);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleCopyCode = (text: string, tokenKey: string) => {
@@ -769,113 +1036,240 @@ def Xform "SemioticsCodex_${bioData.name}" (
                 </span>
               </div>
 
-              {/* Video / Captured Image Surface */}
-              <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center group">
-                {isCameraActive ? (
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover"
-                  />
-                ) : capturedImage ? (
+              {/* Video / Captured Image Surface with Drag and Drop */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleFileUpload(e.dataTransfer.files[0]);
+                  }
+                }}
+                className={`relative aspect-video bg-black rounded-xl overflow-hidden border transition-all flex items-center justify-center group ${
+                  isDragOver ? 'border-emerald-400 ring-2 ring-emerald-500/40 bg-emerald-950/20' : 'border-slate-800'
+                }`}
+              >
+                {/* 1. Permanent Video element - always mounted to prevent null ref */}
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  onLoadedMetadata={() => {
+                    videoRef.current?.play().catch(() => {});
+                  }}
+                  className={`w-full h-full object-cover ${isCameraActive ? 'block' : 'hidden'}`}
+                />
+
+                {/* 2. Simulated Live Sanctuary Telemetry Canvas */}
+                <canvas
+                  ref={simulatedCanvasRef}
+                  className={`w-full h-full object-cover ${!isCameraActive && isSimulatedFeed ? 'block' : 'hidden'}`}
+                />
+
+                {/* 3. Static / Captured Specimen Image */}
+                {!isCameraActive && !isSimulatedFeed && capturedImage && (
                   <img
                     src={capturedImage}
                     alt="Primate Specimen"
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                   />
-                ) : (
+                )}
+
+                {/* 4. Standby placeholder */}
+                {!isCameraActive && !isSimulatedFeed && !capturedImage && (
                   <div className="text-center p-6 space-y-2">
                     <Camera className="w-10 h-10 text-slate-600 mx-auto" />
-                    <p className="text-xs text-slate-400">No active image stream</p>
+                    <p className="text-xs text-slate-400">No active image or camera feed</p>
+                    <p className="text-[11px] text-slate-500">Click Start Camera, Live Sanctuary Webfeed, or drag & drop a photo</p>
                   </div>
                 )}
 
-                {/* Biometric Focal Overlay */}
-                <div className="absolute inset-0 pointer-events-none border-2 border-emerald-500/20 m-4 rounded-lg flex flex-col justify-between p-3">
-                  <div className="flex justify-between text-[10px] font-mono text-emerald-400">
-                    <span>BIOMETRIC SCANNER: ARBOREAL</span>
-                    <span>AI STUDIO ANTIGRAVITY</span>
+                {/* Biometric Focal Overlay for live streams */}
+                {(isCameraActive || isSimulatedFeed) && (
+                  <div className="absolute inset-0 pointer-events-none border-2 border-emerald-500/20 m-4 rounded-lg flex flex-col justify-between p-3">
+                    <div className="flex justify-between text-[10px] font-mono text-emerald-400">
+                      <span>{isCameraActive ? `HARDWARE CAM: ${cameraFacingMode.toUpperCase()}` : 'RMI SANCTUARY REMOTE CAM #01'}</span>
+                      <span className="animate-pulse flex items-center gap-1.5 text-rose-400">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                        LIVE 60 FPS
+                      </span>
+                    </div>
+                    <div className="w-24 h-24 border border-cyan-400/60 rounded-lg mx-auto flex items-center justify-center">
+                      <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></div>
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono text-slate-300 bg-black/40 backdrop-blur-sm px-2 py-1 rounded">
+                      <span>TAIL KINEMATICS: ACTIVE</span>
+                      <span>ACEScg USD PROJECTION</span>
+                    </div>
                   </div>
-                  <div className="w-20 h-20 border border-cyan-400/60 rounded-lg mx-auto flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></div>
+                )}
+
+                {/* Drag over indicator */}
+                {isDragOver && (
+                  <div className="absolute inset-0 bg-emerald-950/80 backdrop-blur-xs flex flex-col items-center justify-center text-emerald-300 gap-2 p-4 text-center pointer-events-none">
+                    <Upload className="w-8 h-8 animate-bounce" />
+                    <p className="text-xs font-bold">Drop primate image here for instant bio analysis</p>
                   </div>
-                  <div className="flex justify-between text-[10px] font-mono text-slate-400">
-                    <span>TAIL CURVATURE: DETECTED</span>
-                    <span>FPS: 60</span>
-                  </div>
-                </div>
+                )}
               </div>
 
+              {/* Hidden file input for manual upload */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                className="hidden"
+              />
+
               {cameraError && (
-                <div className="p-3 bg-amber-950/40 border border-amber-500/40 rounded-xl text-xs text-amber-300 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{cameraError}</span>
+                <div className="p-3 bg-amber-950/40 border border-amber-500/40 rounded-xl text-xs text-amber-300 space-y-1.5">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>Camera Hardware Notice</span>
+                  </div>
+                  <p className="text-[11px] text-amber-200/90 leading-relaxed pl-6">{cameraError}</p>
+                  <div className="pl-6 pt-1 flex gap-2">
+                    <button
+                      onClick={startSimulatedFeed}
+                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 rounded-lg text-[11px] text-amber-100 font-medium transition-colors"
+                    >
+                      Use Live Sanctuary Webstream
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-[11px] text-slate-200 font-medium transition-colors"
+                    >
+                      Upload Photo
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Camera Controls */}
-              <div className="flex flex-wrap items-center gap-2.5">
-                {!isCameraActive ? (
-                  <button
-                    onClick={startCamera}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-all"
-                  >
-                    <Video className="w-4 h-4" />
-                    <span>Start Live Camera</span>
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={captureSnapshot}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg transition-all"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span>Capture Specimen</span>
-                    </button>
-                    <button
-                      onClick={stopCamera}
-                      className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
-                    >
-                      <VideoOff className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
+              {/* Camera Primary Controls */}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {!isCameraActive && !isSimulatedFeed ? (
+                    <>
+                      <button
+                        onClick={() => startCamera(cameraFacingMode)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-all"
+                      >
+                        <Video className="w-4 h-4" />
+                        <span>Start Live Camera</span>
+                      </button>
 
-                {/* Sample Presets */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => {
-                      const img = 'https://images.unsplash.com/photo-1540573133985-87b6da6d54a9?auto=format&fit=crop&w=800&q=80';
-                      setCapturedImage(img);
-                      setBioData((prev) => ({
-                        ...prev,
-                        photoUrl: img,
-                        name: 'Kokoa',
-                        species: 'Rhesus Macaque (Macaca mulatta)',
-                      }));
-                    }}
-                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300"
-                  >
-                    Rhesus
-                  </button>
-                  <button
-                    onClick={() => {
-                      const img = 'https://images.unsplash.com/photo-1574063413132-355dbfd83e25?auto=format&fit=crop&w=800&q=80';
-                      setCapturedImage(img);
-                      setBioData((prev) => ({
-                        ...prev,
-                        photoUrl: img,
-                        name: 'Maya',
-                        species: 'Tufted Capuchin (Sapajus apella)',
-                      }));
-                    }}
-                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300"
-                  >
-                    Capuchin
-                  </button>
+                      <button
+                        onClick={startSimulatedFeed}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-all"
+                        title="Connect to Remote Sanctuary Telemetry Cam"
+                      >
+                        <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Sanctuary Cam</span>
+                      </button>
+
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-all"
+                        title="Upload photo from disk"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-purple-400" />
+                        <span>Upload</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={captureSnapshot}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg transition-all"
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>Capture Specimen Frame</span>
+                      </button>
+
+                      {isCameraActive && (
+                        <button
+                          onClick={toggleCameraFacingMode}
+                          className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700"
+                          title="Switch Front/Back Camera"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{cameraFacingMode === 'user' ? 'Front' : 'Rear'}</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={stopCamera}
+                        className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-300 text-xs border border-slate-700 transition-colors"
+                        title="Stop video feed"
+                      >
+                        <VideoOff className="w-4 h-4 text-rose-400" />
+                        <span>Stop</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Sample Primate Specimen Presets */}
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                  <span>Curated Specimen Plates:</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => {
+                        stopCamera();
+                        const img = 'https://images.unsplash.com/photo-1540573133985-87b6da6d54a9?auto=format&fit=crop&w=800&q=80';
+                        setCapturedImage(img);
+                        setBioData((prev) => ({
+                          ...prev,
+                          photoUrl: img,
+                          name: 'Kokoa',
+                          species: 'Rhesus Macaque (Macaca mulatta)',
+                        }));
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 transition-colors"
+                    >
+                      Rhesus
+                    </button>
+                    <button
+                      onClick={() => {
+                        stopCamera();
+                        const img = 'https://images.unsplash.com/photo-1574063413132-355dbfd83e25?auto=format&fit=crop&w=800&q=80';
+                        setCapturedImage(img);
+                        setBioData((prev) => ({
+                          ...prev,
+                          photoUrl: img,
+                          name: 'Maya',
+                          species: 'Tufted Capuchin (Sapajus apella)',
+                        }));
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 transition-colors"
+                    >
+                      Capuchin
+                    </button>
+                    <button
+                      onClick={() => {
+                        stopCamera();
+                        const img = 'https://images.unsplash.com/photo-1501706362039-c06b2d715385?auto=format&fit=crop&w=800&q=80';
+                        setCapturedImage(img);
+                        setBioData((prev) => ({
+                          ...prev,
+                          photoUrl: img,
+                          name: 'Kenzo',
+                          species: 'Japanese Macaque (Macaca fuscata)',
+                        }));
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 transition-colors"
+                    >
+                      Japanese Macaque
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
