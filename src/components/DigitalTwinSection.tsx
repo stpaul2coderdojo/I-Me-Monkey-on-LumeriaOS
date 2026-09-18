@@ -69,8 +69,11 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
   const [digitalTwins, setDigitalTwins] = useState<MonkeyDigitalTwin[]>(INITIAL_DIGITAL_TWINS);
   const [cinematicScenes, setCinematicScenes] = useState<CinematicUsdScene[]>(CINEMATIC_USD_SCENES);
   const [selectedTwinId, setSelectedTwinId] = useState<string>(INITIAL_DIGITAL_TWINS[0].id);
+  const [selectedSceneId, setSelectedSceneId] = useState<string>(CINEMATIC_USD_SCENES[0].id);
   const [viewMode, setViewMode] = useState<'cinematic-usd' | 'ethology-studio' | 'veo-video-studio' | 'cards' | 'json-editor' | 'create-form'>('cinematic-usd');
   const [usdTab, setUsdTab] = useState<'spatial-viewport' | 'usda-code' | 'mesh-hierarchy' | 'bio-usd'>('spatial-viewport');
+
+  const selectedScene = cinematicScenes.find(s => s.id === selectedSceneId) || cinematicScenes[0];
   
   // Antigravity Bio generation state
   const [isGeneratingBio, setIsGeneratingBio] = useState<boolean>(false);
@@ -593,12 +596,10 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
           <GoogleVeoVideoStudio
             currentTwin={selectedTwin}
             allTwins={digitalTwins}
-            currentScene={cinematicScenes[0]}
+            currentScene={selectedScene}
             allScenes={cinematicScenes}
             onSelectTwin={(twin) => setSelectedTwinId(twin.id)}
-            onSelectScene={(scene) => {
-              // Scene selected
-            }}
+            onSelectScene={(scene) => setSelectedSceneId(scene.id)}
           />
         </div>
       )}

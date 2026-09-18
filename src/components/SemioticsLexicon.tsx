@@ -8,14 +8,13 @@ import {
   MonkeyDigitalTwin,
 } from '../types';
 import { COMPREHENSIVE_SEMIOTICS_SIGNALS, PRIMATE_SPECIES_OPTIONS } from '../data/semioticsData';
-import * as THREE from 'three';
-import { PixiSemioticsStage } from './PixiSemioticsStage';
 import {
   Search,
   Filter,
   Camera,
   Video,
   VideoOff,
+  Film,
   Sparkles,
   CheckCircle2,
   AlertCircle,
@@ -105,8 +104,6 @@ export const SemioticsLexicon: React.FC<SemioticsLexiconProps> = ({
 
   // 5. High-Resolution USD & Motion Model State
   const [activeTab, setActiveTab] = useState<'lexicon-table' | 's-ipa' | 'camera-imaging' | 'codex-viewer' | 'motion-model'>('lexicon-table');
-  const [motionEngine, setMotionEngine] = useState<'three-3d' | 'pixi-2d'>('three-3d');
-  const motionCanvasRef = useRef<HTMLDivElement | null>(null);
   const [isMotionPlaying, setIsMotionPlaying] = useState<boolean>(true);
   const [motionFrame, setMotionFrame] = useState<number>(0);
 
@@ -606,114 +603,13 @@ def Xform "SemioticsCodex_${bioData.name}" (
     }, 2500);
   };
 
-  // 3D Motion Model Interactive WebGL Preview
+  // Motion Model Keyframe Animation Loop
   useEffect(() => {
-    if (activeTab !== 'motion-model' || !activeCodex) return;
-    const container = motionCanvasRef.current;
-    if (!container) return;
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x060b14);
-
-    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 50);
-    camera.position.set(0, 1.2, 3.2);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.shadowMap.enabled = true;
-
-    while (container.firstChild) {
-      container.removeChild(container.firstChild);
-    }
-    container.appendChild(renderer.domElement);
-
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0x38bdf8, 2.5);
-    dirLight.position.set(3, 5, 4);
-    scene.add(dirLight);
-
-    // Breadfruit Perch
-    const branchGeo = new THREE.CylinderGeometry(0.18, 0.22, 5, 16);
-    branchGeo.rotateZ(Math.PI / 2);
-    const branchMat = new THREE.MeshStandardMaterial({ color: 0x3d271d, roughness: 0.85 });
-    const branch = new THREE.Mesh(branchGeo, branchMat);
-    branch.position.set(0, -0.3, 0);
-    scene.add(branch);
-
-    // Primate Character Group
-    const simian = new THREE.Group();
-    simian.position.set(0, 0, 0);
-
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.6 });
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.4 });
-
-    // Torso
-    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.38, 8, 12), bodyMat);
-    torso.rotation.z = 0.2;
-    simian.add(torso);
-
-    // Head
-    const head = new THREE.Group();
-    head.position.set(-0.28, 0.38, 0);
-    const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), bodyMat);
-    head.add(cranium);
-    const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.11, 0.16, 10), skinMat);
-    snout.rotation.z = Math.PI / 2;
-    snout.position.set(-0.12, -0.04, 0);
-    head.add(snout);
-    simian.add(head);
-
-    // Articulated Tail Joints Chain (8 segments)
-    const tailSegs: THREE.Group[] = [];
-    let parentGroup: THREE.Group = simian;
-    for (let i = 0; i < 8; i++) {
-      const seg = new THREE.Group();
-      if (i === 0) seg.position.set(0.28, 0.05, 0);
-      else seg.position.set(0.11, 0, 0);
-
-      const segMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.12, 8), bodyMat);
-      segMesh.rotateZ(-Math.PI / 2);
-      segMesh.position.set(0.06, 0, 0);
-      seg.add(segMesh);
-
-      parentGroup.add(seg);
-      parentGroup = seg;
-      tailSegs.push(seg);
-    }
-
-    scene.add(simian);
-
-    let animId: number;
-    let frameIdx = 0;
-    const animate = () => {
-      animId = requestAnimationFrame(animate);
-      if (isMotionPlaying && activeCodex) {
-        frameIdx = (frameIdx + 1) % activeCodex.motionModel.keyframes.length;
-        setMotionFrame(frameIdx);
-        const kf = activeCodex.motionModel.keyframes[frameIdx];
-
-        // Animate joints according to Motion Model Keyframe
-        head.rotation.y = (kf.headYawDeg * Math.PI) / 180;
-        torso.rotation.z = 0.2 + kf.spineFlexion * 0.2;
-
-        const tailRad = ((kf.tailAngleDeg / 8) * Math.PI) / 180;
-        tailSegs.forEach((ts, idx) => {
-          ts.rotation.z = tailRad + Math.sin(frameIdx * 0.2 + idx) * 0.05;
-          ts.rotation.y = kf.tailCurvature * 0.15;
-        });
-      }
-      renderer.render(scene, camera);
-    };
-
-    animate();
-
-    return () => {
-      cancelAnimationFrame(animId);
-      renderer.dispose();
-    };
+    if (activeTab !== 'motion-model' || !activeCodex || !isMotionPlaying) return;
+    const interval = setInterval(() => {
+      setMotionFrame((prev) => (prev + 1) % (activeCodex.motionModel.keyframes.length || 60));
+    }, 1000 / 30);
+    return () => clearInterval(interval);
   }, [activeTab, activeCodex, isMotionPlaying]);
 
   return (
@@ -1577,7 +1473,7 @@ def Xform "SemioticsCodex_${bioData.name}" (
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: 60 FPS USD MOTION MODEL INTERACTIVE 3D PREVIEW */}
+      {/* TAB 4: 60 FPS USD MOTION MODEL & BIOMECHANICAL TELEMETRY */}
       {/* ========================================================================= */}
       {activeTab === 'motion-model' && activeCodex && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
@@ -1593,34 +1489,6 @@ def Xform "SemioticsCodex_${bioData.name}" (
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Three.js 3D vs Pixi.js 2D Waveform Toggle */}
-              <div className="flex items-center bg-slate-950 border border-slate-700 rounded-lg p-0.5 text-xs">
-                <button
-                  onClick={() => setMotionEngine('three-3d')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition-all ${
-                    motionEngine === 'three-3d'
-                      ? 'bg-emerald-500 text-slate-950 font-bold'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                  title="Three.js 3D WebGL Rig"
-                >
-                  <Cpu className="w-3.5 h-3.5" />
-                  <span>Three.js 3D</span>
-                </button>
-                <button
-                  onClick={() => setMotionEngine('pixi-2d')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition-all ${
-                    motionEngine === 'pixi-2d'
-                      ? 'bg-cyan-500 text-slate-950 font-bold'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                  title="Pixi.js v8 2.5D Spectral & Rig Stage"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Pixi.js GPU</span>
-                </button>
-              </div>
-
               <button
                 onClick={() => setIsMotionPlaying(!isMotionPlaying)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all"
@@ -1632,28 +1500,65 @@ def Xform "SemioticsCodex_${bioData.name}" (
               {onNavigateToStage && (
                 <button
                   onClick={onNavigateToStage}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/30"
                 >
-                  <Cpu className="w-4 h-4" />
-                  <span>Launch in Stage</span>
+                  <Video className="w-4 h-4" />
+                  <span>Launch in Google Veo Studio</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Viewport: Three.js 3D Canvas vs Pixi.js 2D Waveform Stage */}
-          {motionEngine === 'three-3d' ? (
-            <div
-              ref={motionCanvasRef}
-              className="w-full h-96 bg-[#040810] rounded-xl overflow-hidden border border-slate-800 shadow-inner relative"
-            />
-          ) : (
-            <PixiSemioticsStage
-              codex={activeCodex}
-              isPlaying={isMotionPlaying}
-              currentFrame={motionFrame}
-            />
-          )}
+          {/* Kinematic Curve & Skeletal Parameters Display */}
+          <div className="w-full bg-[#040810] rounded-xl p-6 border border-slate-800 shadow-inner relative flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-3 max-w-md">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-bold">
+                <Sparkles className="w-3.5 h-3.5" />
+                Google Veo Video Pipeline Ready
+              </div>
+              <h4 className="text-xl font-bold text-white">
+                Biomechanical Ethogram Kinematics
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Reconstructed skeletal transforms, head yaw, spinal flexion, and multi-segment prehensile tail curves synthesized into high-density Pixar USD definitions ready for temporal diffusion and live video streaming.
+              </p>
+              {onNavigateToStage && (
+                <button
+                  onClick={onNavigateToStage}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all shadow-lg shadow-cyan-600/20"
+                >
+                  <Film className="w-4 h-4" />
+                  <span>Synthesize Veo Video Stream</span>
+                </button>
+              )}
+            </div>
+
+            {/* Visual Kinematic Waveform Simulator */}
+            <div className="w-full md:w-72 bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 font-mono text-xs">
+              <div className="text-[11px] text-slate-400 border-b border-slate-800 pb-1 flex justify-between">
+                <span>STAGE KINEMATICS</span>
+                <span className="text-emerald-400 font-bold">60 FPS</span>
+              </div>
+              <div className="space-y-2 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Head Yaw:</span>
+                  <span className="text-cyan-300 font-bold">{activeCodex.motionModel.keyframes[motionFrame]?.headYawDeg || 0}°</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Spine Flexion:</span>
+                  <span className="text-emerald-300 font-bold">{(activeCodex.motionModel.keyframes[motionFrame]?.spineFlexion || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Tail Curvature:</span>
+                  <span className="text-amber-300 font-bold">{(activeCodex.motionModel.keyframes[motionFrame]?.tailCurvature || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Temporal Rate:</span>
+                  <span className="text-purple-300 font-bold">1/30 sec</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Motion Keyframe Telemetry Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono">
