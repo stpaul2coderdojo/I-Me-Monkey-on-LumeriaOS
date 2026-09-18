@@ -34,9 +34,13 @@ import {
   SlidersHorizontal,
   Wind,
   Flower,
-  Cpu
+  Cpu,
+  Film,
+  Video
 } from 'lucide-react';
 import { OpenGlMonkeyStage } from './OpenGlMonkeyStage';
+import { PixiMonkeyStage } from './PixiMonkeyStage';
+import { GoogleVeoVideoStudio } from './GoogleVeoVideoStudio';
 
 // Image caching system for high-resolution USD plates and primate portraits
 const imageCache = new Map<string, HTMLImageElement>();
@@ -91,8 +95,8 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
   }, [scenesList, activeSceneId]);
 
   // Viewport mode
-  const [viewportTab, setViewportTab] = useState<'cinematic' | 'usda-code' | 'render-passes'>('cinematic');
-  const [renderEngine, setRenderEngine] = useState<'opengl-3d' | 'canvas-composite'>('opengl-3d');
+  const [viewportTab, setViewportTab] = useState<'cinematic' | 'usda-code' | 'render-passes' | 'veo-video'>('cinematic');
+  const [renderEngine, setRenderEngine] = useState<'opengl-3d' | 'pixi-stage' | 'canvas-composite'>('opengl-3d');
 
   // Animation & Playback
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -668,6 +672,35 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
               <span>Google Antigravity</span>
             </div>
           </button>
+
+          {/* Google Veo AI Video Stream Studio Quick Access Button */}
+          <button
+            onClick={() => {
+              setViewportTab('veo-video');
+            }}
+            className="text-left p-3 rounded-xl border border-dashed border-cyan-500/60 bg-cyan-950/20 hover:bg-cyan-900/30 hover:border-cyan-400 transition-all flex flex-col justify-between group shadow-sm"
+            title="Generate Video Stream from Monkey & Scene Assets with Google Veo"
+          >
+            <div className="flex items-center justify-between gap-1 mb-1.5">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+              <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">
+                VEO 3.1
+              </span>
+            </div>
+
+            <div>
+              <div className="font-bold text-xs text-white group-hover:text-cyan-300 transition-colors flex items-center gap-1">
+                <Film className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
+                <span>+ Veo Video Stream</span>
+              </div>
+              <div className="text-[10px] text-slate-400 mt-0.5">Neural Video Synthesis</div>
+            </div>
+
+            <div className="mt-2 text-[9px] font-mono text-emerald-400 flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5" />
+              <span>Google Veo API</span>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -719,11 +752,22 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
             >
               PBR Shaders & Rig
             </button>
+            <button
+              onClick={() => setViewportTab('veo-video')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded font-medium transition-all ${
+                viewportTab === 'veo-video'
+                  ? 'bg-gradient-to-r from-cyan-500/30 to-emerald-500/30 text-cyan-300 border border-cyan-500/50 font-bold shadow-sm shadow-cyan-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Film className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Google Veo Stream</span>
+            </button>
           </div>
 
           {/* Right: Render Engine Selector, Sound, Widescreen & Fullscreen Controls */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* OpenGL 3D vs 2D Canvas Engine Toggle */}
+            {/* Three.js 3D vs Pixi.js 2.5D vs 2D Canvas Engine Toggle */}
             <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-lg p-0.5 text-xs">
               <button
                 onClick={() => setRenderEngine('opengl-3d')}
@@ -735,7 +779,19 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
                 title="Three.js WebGL / OpenGL 3D Hardware Accelerated Stage"
               >
                 <Cpu className="w-3.5 h-3.5" />
-                <span>OpenGL 3D</span>
+                <span>Three.js 3D</span>
+              </button>
+              <button
+                onClick={() => setRenderEngine('pixi-stage')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-all ${
+                  renderEngine === 'pixi-stage'
+                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
+                    : 'text-slate-400 hover:text-white font-medium'
+                }`}
+                title="Pixi.js v8 2.5D GPU Hardware Accelerated Stage"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Pixi.js GPU</span>
               </button>
               <button
                 onClick={() => setRenderEngine('canvas-composite')}
@@ -790,6 +846,23 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
         {viewportTab === 'cinematic' && (
           renderEngine === 'opengl-3d' ? (
             <OpenGlMonkeyStage
+              twin={selectedTwin}
+              activeScene={activeScene}
+              windSpeedKmH={windSpeedKmH}
+              gustiness={gustiness}
+              windDirectionDeg={windDirectionDeg}
+              cameraAnglePreset={activeCameraAngle}
+              isPlaying={isPlaying}
+              playbackSpeed={playbackSpeed}
+              showSkeletalRig={showSkeletalRig}
+              showLiDARPointCloud={showLiDARPointCloud}
+              enableSubsurfaceScattering={enableSubsurfaceScattering}
+              enableAnisotropicFur={enableAnisotropicFur}
+              isWidescreenScope={isWidescreenScope}
+              showEthologyOverlay={showEthologyOverlay}
+            />
+          ) : renderEngine === 'pixi-stage' ? (
+            <PixiMonkeyStage
               twin={selectedTwin}
               activeScene={activeScene}
               windSpeedKmH={windSpeedKmH}
@@ -1200,6 +1273,20 @@ export const CinematicUsdStage: React.FC<CinematicUsdStageProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB 4: Google Veo AI Video Stream Studio */}
+        {viewportTab === 'veo-video' && (
+          <div className="p-4 bg-[#050811]">
+            <GoogleVeoVideoStudio
+              currentTwin={selectedTwin}
+              allTwins={allTwins}
+              currentScene={activeScene}
+              allScenes={scenesList}
+              onSelectTwin={(twin) => onSelectTwin(twin.id)}
+              onSelectScene={(scene) => setActiveSceneId(scene.id)}
+            />
           </div>
         )}
 

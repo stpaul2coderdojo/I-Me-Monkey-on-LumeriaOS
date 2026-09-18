@@ -304,6 +304,9 @@ export interface SemioticsSignal {
   intensityScale: number; // 1 to 10
   literatureCitation: string;
   ethogramCode: string;
+  sIpaPhoneme?: string;
+  diacritic?: string;
+  acousticMechanism?: string;
 }
 
 export interface PrimateBioData {
@@ -343,4 +346,75 @@ export interface SemioticsCodex {
     keyframes: MotionModelKeyframe[];
   };
   generatedAt: string;
+}
+
+// ==================== SIMIAN INTERSPECIES PHONETIC ALPHABET (S-IPA) ====================
+
+export type SipaCategory = 'diacritic' | 'consonant' | 'vowel' | 'sequence';
+
+export interface SipaDiacritic {
+  id: string;
+  symbol: string;
+  displaySymbol: string;
+  name: string;
+  phoneticModifier: string;
+  acousticMechanism: string;
+  example: string;
+  exampleTranscription: string;
+  vocalTractMechanism: string;
+  frequencyRangeHz?: [number, number];
+  usdPropertyBinding: string;
+}
+
+export interface SipaConsonant {
+  id: string;
+  symbol: string;
+  name: string;
+  mechanism: string;
+  functionalRole: string;
+  speciesUsage: string[];
+  acousticProfile: string;
+  defaultFrequencyHz: number;
+  percussiveType: 'labial' | 'dental' | 'laryngeal' | 'glottal_burst';
+  pulmonic: boolean;
+  usdToken: string;
+}
+
+export interface SipaVowel {
+  id: string;
+  symbol: string;
+  name: string;
+  commonCallName: string;
+  vowelHeight: 'high' | 'mid' | 'low';
+  vowelBackness: 'front' | 'central' | 'back';
+  lipPosition: 'rounded' | 'unrounded' | 'open_grimace';
+  description: string;
+  speciesDistribution: string[];
+  baseFrequencyHz: number;
+  formants: { f1: number; f2: number };
+  usdToken: string;
+}
+
+export interface SipaTranscriptionPhase {
+  phaseNumber: number;
+  name: string;
+  sipaNotation: string;
+  acousticDescription: string;
+  respiratoryDynamic: 'ingress' | 'egress' | 'rapid_cycle';
+  frequencyHz: number;
+  durationMs: number;
+  airSacEngagement: boolean;
+}
+
+export interface SipaSpeciesTranscription {
+  id: string;
+  species: string;
+  latinName: string;
+  callSequenceName: string;
+  sIpaRepresentation: string;
+  behavioralContext: string;
+  ecologicalFunction: string;
+  canopyAcoustics: string;
+  phases: SipaTranscriptionPhase[];
+  usdAudioSchemaAscii: string;
 }

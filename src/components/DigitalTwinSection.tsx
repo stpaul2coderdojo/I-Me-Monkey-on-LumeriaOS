@@ -15,6 +15,7 @@ import {
 import { CINEMATIC_USD_SCENES } from '../data/cinematicUsdScenes';
 import { CinematicUsdStage } from './CinematicUsdStage';
 import { PrimateEthologyStudio } from './PrimateEthologyStudio';
+import { GoogleVeoVideoStudio } from './GoogleVeoVideoStudio';
 import { 
   Play, 
   Pause, 
@@ -46,7 +47,8 @@ import {
   Wand2,
   Loader2,
   RefreshCw,
-  BookOpen
+  BookOpen,
+  Film
 } from 'lucide-react';
 
 interface DigitalTwinSectionProps {
@@ -67,7 +69,7 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
   const [digitalTwins, setDigitalTwins] = useState<MonkeyDigitalTwin[]>(INITIAL_DIGITAL_TWINS);
   const [cinematicScenes, setCinematicScenes] = useState<CinematicUsdScene[]>(CINEMATIC_USD_SCENES);
   const [selectedTwinId, setSelectedTwinId] = useState<string>(INITIAL_DIGITAL_TWINS[0].id);
-  const [viewMode, setViewMode] = useState<'cinematic-usd' | 'ethology-studio' | 'cards' | 'json-editor' | 'create-form'>('cinematic-usd');
+  const [viewMode, setViewMode] = useState<'cinematic-usd' | 'ethology-studio' | 'veo-video-studio' | 'cards' | 'json-editor' | 'create-form'>('cinematic-usd');
   const [usdTab, setUsdTab] = useState<'spatial-viewport' | 'usda-code' | 'mesh-hierarchy' | 'bio-usd'>('spatial-viewport');
   
   // Antigravity Bio generation state
@@ -430,6 +432,18 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
             </button>
 
             <button
+              onClick={() => setViewMode('veo-video-studio')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all w-full justify-center ${
+                viewMode === 'veo-video-studio'
+                  ? 'bg-gradient-to-r from-cyan-600 via-emerald-600 to-teal-600 text-white shadow-lg shadow-cyan-600/30 ring-1 ring-cyan-400'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Film className="w-4 h-4 text-cyan-300" />
+              <span>Veo Video Streams</span>
+            </button>
+
+            <button
               onClick={() => setViewMode('cards')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all w-full justify-center ${
                 viewMode === 'cards'
@@ -569,6 +583,22 @@ export const DigitalTwinSection: React.FC<DigitalTwinSectionProps> = ({
             selectedTwin={selectedTwin}
             allTwins={digitalTwins}
             onSelectTwin={(twinId) => setSelectedTwinId(twinId)}
+          />
+        </div>
+      )}
+
+      {/* VIEW MODE: GOOGLE VEO AI VIDEO STREAM STUDIO */}
+      {viewMode === 'veo-video-studio' && (
+        <div className="space-y-8 animate-in fade-in duration-300">
+          <GoogleVeoVideoStudio
+            currentTwin={selectedTwin}
+            allTwins={digitalTwins}
+            currentScene={cinematicScenes[0]}
+            allScenes={cinematicScenes}
+            onSelectTwin={(twin) => setSelectedTwinId(twin.id)}
+            onSelectScene={(scene) => {
+              // Scene selected
+            }}
           />
         </div>
       )}

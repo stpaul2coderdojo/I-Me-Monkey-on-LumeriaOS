@@ -120,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <BookOpen className="w-4 h-4 text-purple-400" />
               <span>Semiotics Lexicon</span>
               <span className="px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                USD
+                S-IPA & USD
               </span>
             </button>
 

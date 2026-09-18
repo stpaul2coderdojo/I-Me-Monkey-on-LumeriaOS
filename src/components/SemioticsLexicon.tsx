@@ -9,6 +9,7 @@ import {
 } from '../types';
 import { COMPREHENSIVE_SEMIOTICS_SIGNALS, PRIMATE_SPECIES_OPTIONS } from '../data/semioticsData';
 import * as THREE from 'three';
+import { PixiSemioticsStage } from './PixiSemioticsStage';
 import {
   Search,
   Filter,
@@ -44,6 +45,7 @@ import {
   ExternalLink,
   Zap,
 } from 'lucide-react';
+import { SipaCodexSection } from './SipaCodexSection';
 
 interface SemioticsLexiconProps {
   onAddDigitalTwin?: (twin: MonkeyDigitalTwin) => void;
@@ -102,7 +104,8 @@ export const SemioticsLexicon: React.FC<SemioticsLexiconProps> = ({
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // 5. High-Resolution USD & Motion Model State
-  const [activeTab, setActiveTab] = useState<'lexicon-table' | 'camera-imaging' | 'codex-viewer' | 'motion-model'>('lexicon-table');
+  const [activeTab, setActiveTab] = useState<'lexicon-table' | 's-ipa' | 'camera-imaging' | 'codex-viewer' | 'motion-model'>('lexicon-table');
+  const [motionEngine, setMotionEngine] = useState<'three-3d' | 'pixi-2d'>('three-3d');
   const motionCanvasRef = useRef<HTMLDivElement | null>(null);
   const [isMotionPlaying, setIsMotionPlaying] = useState<boolean>(true);
   const [motionFrame, setMotionFrame] = useState<number>(0);
@@ -547,12 +550,15 @@ def Xform "SemioticsCodex_${bioData.name}" (
         }
 
         def "AcousticSemiotics" (
-            doc = "Bioacoustic frequency profiles and communicative intent"
+            doc = "Bioacoustic frequency profiles and S-IPA (Simian Interspecies Phonetic Alphabet) mappings"
         )
         {
             float semiotics:dominantF0 = 890.0
             float semiotics:maxSplDb = 92.0
             token semiotics:primaryVocalization = "usd:semiotics:acoustic:coo_call"
+            string semiotics:sipaPhoneme = "[ ʊ̃↓-ʊ̃↓ ] -> [ ɓ̥ɑ↑-ɓ̥ɑ↓ ] -> [ ɯː↑ ]"
+            string semiotics:sipaStandard = "S-IPA-1.0-LumeriaOS"
+            bool semiotics:subhyoidResonanceActive = ${bioData.species.includes('Siamang') || bioData.species.includes('Chimpanzee') ? 'true' : 'false'}
         }
 
         def "FacialSemiotics" (
@@ -790,6 +796,21 @@ def Xform "SemioticsCodex_${bioData.name}" (
           </button>
 
           <button
+            onClick={() => setActiveTab('s-ipa')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 's-ipa'
+                ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/50 shadow-md'
+                : 'bg-slate-900/60 text-slate-400 border border-slate-800 hover:text-white'
+            }`}
+          >
+            <Volume2 className="w-4 h-4 text-indigo-400" />
+            <span>S-IPA Phonetic Alphabet</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-indigo-950 text-indigo-300 text-[10px] font-mono border border-indigo-500/30">
+              Standard
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('camera-imaging')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'camera-imaging'
@@ -922,6 +943,12 @@ def Xform "SemioticsCodex_${bioData.name}" (
                           <div className="text-[9px] font-mono text-slate-500 mt-0.5">
                             {sig.ethogramCode} • {sig.species.split(' ')[0]}
                           </div>
+                          {sig.sIpaPhoneme && (
+                            <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-950/80 border border-indigo-500/40 text-[9px] font-mono">
+                              <span className="text-indigo-400 font-bold">S-IPA:</span>
+                              <span className="text-amber-300 font-semibold">{sig.sIpaPhoneme}</span>
+                            </div>
+                          )}
                         </td>
 
                         <td className="py-3 px-3 whitespace-nowrap">
@@ -1015,7 +1042,87 @@ def Xform "SemioticsCodex_${bioData.name}" (
               </div>
             </div>
           </div>
+
+          {/* Active Signal Inspector Card */}
+          {activeSignalPreview && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-purple-950/80 border border-purple-500/30 text-purple-300">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-white">{activeSignalPreview.name}</h3>
+                      <span className="text-[10px] font-mono text-purple-300 bg-purple-950 px-2 py-0.5 rounded border border-purple-500/30">
+                        {activeSignalPreview.ethogramCode}
+                      </span>
+                    </div>
+                    <div className="text-xs font-serif italic text-slate-400">
+                      {activeSignalPreview.latinOrScientificName} • {activeSignalPreview.species}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => playSignalSound(activeSignalPreview)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40 text-xs font-bold transition-all"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                    <span>Audition Signal</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('s-ipa')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/40 text-xs font-bold transition-all"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Open S-IPA Phonetics Studio</span>
+                  </button>
+                </div>
+              </div>
+
+              {activeSignalPreview.sIpaPhoneme && (
+                <div className="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-500/30 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-indigo-400 block font-bold">
+                      S-IPA Canonical Phoneme
+                    </span>
+                    <span className="text-base font-mono font-bold text-amber-300">
+                      {activeSignalPreview.sIpaPhoneme}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-indigo-400 block font-bold">
+                      Diacritic & Vocal Tract Modifier
+                    </span>
+                    <span className="text-slate-200">
+                      {activeSignalPreview.diacritic || 'Subhyoid Ingress / Co-articulation'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-indigo-400 block font-bold">
+                      Acoustic Mechanism
+                    </span>
+                    <span className="text-slate-300">
+                      {activeSignalPreview.acousticMechanism || 'Tonal modulation through vocal tract.'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 2: S-IPA PHONETIC ALPHABET CODEX */}
+      {/* ========================================================================= */}
+      {activeTab === 's-ipa' && (
+        <SipaCodexSection />
       )}
 
       {/* ========================================================================= */}
@@ -1486,6 +1593,34 @@ def Xform "SemioticsCodex_${bioData.name}" (
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Three.js 3D vs Pixi.js 2D Waveform Toggle */}
+              <div className="flex items-center bg-slate-950 border border-slate-700 rounded-lg p-0.5 text-xs">
+                <button
+                  onClick={() => setMotionEngine('three-3d')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition-all ${
+                    motionEngine === 'three-3d'
+                      ? 'bg-emerald-500 text-slate-950 font-bold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Three.js 3D WebGL Rig"
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>Three.js 3D</span>
+                </button>
+                <button
+                  onClick={() => setMotionEngine('pixi-2d')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition-all ${
+                    motionEngine === 'pixi-2d'
+                      ? 'bg-cyan-500 text-slate-950 font-bold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Pixi.js v8 2.5D Spectral & Rig Stage"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Pixi.js GPU</span>
+                </button>
+              </div>
+
               <button
                 onClick={() => setIsMotionPlaying(!isMotionPlaying)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all"
@@ -1500,17 +1635,25 @@ def Xform "SemioticsCodex_${bioData.name}" (
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all"
                 >
                   <Cpu className="w-4 h-4" />
-                  <span>Launch in Marshall Islands OpenGL Stage</span>
+                  <span>Launch in Stage</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* 3D WebGL Motion Canvas */}
-          <div
-            ref={motionCanvasRef}
-            className="w-full h-96 bg-[#040810] rounded-xl overflow-hidden border border-slate-800 shadow-inner relative"
-          />
+          {/* Viewport: Three.js 3D Canvas vs Pixi.js 2D Waveform Stage */}
+          {motionEngine === 'three-3d' ? (
+            <div
+              ref={motionCanvasRef}
+              className="w-full h-96 bg-[#040810] rounded-xl overflow-hidden border border-slate-800 shadow-inner relative"
+            />
+          ) : (
+            <PixiSemioticsStage
+              codex={activeCodex}
+              isPlaying={isMotionPlaying}
+              currentFrame={motionFrame}
+            />
+          )}
 
           {/* Motion Keyframe Telemetry Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono">
